@@ -48,9 +48,9 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex items-center gap-2 justify-center mb-10">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
+          <div className="w-2 h-2 rounded-full bg-[#99e7fa] shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
           <span className="text-sm font-semibold tracking-widest uppercase text-zinc-100">
-            SC Intel
+            INTELLECT
           </span>
         </div>
 
@@ -76,7 +76,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading || !key.trim()}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-medium"
+              className="w-full bg-[#99e7fa] hover:bg-emerald-400 text-black font-medium"
             >
               {loading
                 ? <Loader2 size={14} className="animate-spin" />

@@ -3,21 +3,22 @@ import api from "@/lib/api";
 import { PaginatedResponse } from "./clientsSlice";
 
 export interface Rate {
-  id: number;
-  corridor: string;
-  rate: number;
-  currency: string;
+  id:             number;
+  corridor:       string;
+  rate:           number;
+  currency:       string;
   container_type: string;
-  source: string;
-  recorded_at: string;
+  source:         string;
+  recorded_at:    string;
 }
 
 export interface RateCreate {
-  corridor: string;
-  rate: number;
-  currency?: string;
+  corridor:       string;
+  rate:           number;
+  currency?:      string;
   container_type?: string;
-  source?: string;
+  source?:        string;
+  recorded_at?:   string;  // ISO string — optional, for backdating
 }
 
 interface RatesState {
@@ -42,7 +43,9 @@ const initialState: RatesState = {
 
 export const fetchRates = createAsyncThunk(
   "rates/fetchAll",
-  async ({ page = 1, limit = 20, corridor }: { page?: number; limit?: number; corridor?: string } = {}) => {
+  async ({ page = 1, limit = 20, corridor }: {
+    page?: number; limit?: number; corridor?: string
+  } = {}) => {
     const params: Record<string, unknown> = { page, limit };
     if (corridor) params.corridor = corridor;
     const res = await api.get("/rates", { params });

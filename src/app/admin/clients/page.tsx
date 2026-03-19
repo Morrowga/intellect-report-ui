@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
 import {
-  fetchClients, createClient, updateClient, deactivateClient, Client,
+  fetchClients, createClient, updateClient, toggleClientActive, Client,
 } from "@/store/slices/clientsSlice";
 import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
@@ -22,47 +22,97 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, PowerOff, Loader2 } from "lucide-react";
+import { Plus, Pencil, Power, PowerOff, Loader2 } from "lucide-react";
 
-const CORRIDORS = [
-  "ASIA_EUROPE", "ASIA_US", "ASIA_US_EAST", "ASIA_AU",
-  "ASIA_ME", "EUROPE_US", "ASIA_SEA", "ASIA_INDIA",
+// ---------------------------------------------------------------------------
+// All 16 corridors — 12 FBX (free) + 4 manual
+// ---------------------------------------------------------------------------
+const CORRIDORS_FBX = [
+  "ASIA_NORTHEUROPE",
+  "NORTHEUROPE_ASIA",
+  "ASIA_MED",
+  "MED_ASIA",
+  "ASIA_NAWEST",
+  "NAWEST_ASIA",
+  "ASIA_NAEAST",
+  "NAEAST_ASIA",
+  "NAEAST_NORTHEUROPE",
+  "NORTHEUROPE_NAEAST",
+  "EUROPE_SA_EAST",
+  "EUROPE_SA_WEST",
 ];
+
+const CORRIDORS_MANUAL = [
+  "ASIA_AU",
+  "ASIA_ME",
+  "ASIA_SEA",
+  "ASIA_INDIA",
+];
+
+const ALL_CORRIDORS = [...CORRIDORS_FBX, ...CORRIDORS_MANUAL];
+
 const CORRIDOR_LABELS: Record<string, string> = {
-  ASIA_EUROPE:  "Asia → Europe",
-  ASIA_US:      "Asia → US West",
-  ASIA_US_EAST: "Asia → US East",
-  ASIA_AU:      "Asia → Australia",
-  ASIA_ME:      "Asia → Middle East",
-  EUROPE_US:    "Europe → US",
-  ASIA_SEA:     "Asia → SE Asia",
-  ASIA_INDIA:   "Asia → India",
+  ASIA_NORTHEUROPE:    "China/East Asia → North Europe",
+  NORTHEUROPE_ASIA:    "North Europe → China/East Asia",
+  ASIA_MED:            "China/East Asia → Mediterranean",
+  MED_ASIA:            "Mediterranean → China/East Asia",
+  ASIA_NAWEST:         "China/East Asia → NA West Coast",
+  NAWEST_ASIA:         "NA West Coast → China/East Asia",
+  ASIA_NAEAST:         "China/East Asia → NA East Coast",
+  NAEAST_ASIA:         "NA East Coast → China/East Asia",
+  NAEAST_NORTHEUROPE:  "NA East Coast → North Europe",
+  NORTHEUROPE_NAEAST:  "North Europe → NA East Coast",
+  EUROPE_SA_EAST:      "Europe → SA East Coast",
+  EUROPE_SA_WEST:      "Europe → SA West Coast",
+  ASIA_AU:             "Asia → Australia",
+  ASIA_ME:             "Asia → Middle East",
+  ASIA_SEA:            "Asia → SE Asia",
+  ASIA_INDIA:          "Asia → India",
+};
+
+const CORRIDOR_FBX: Record<string, string> = {
+  ASIA_NORTHEUROPE:    "FBX11",
+  NORTHEUROPE_ASIA:    "FBX12",
+  ASIA_MED:            "FBX13",
+  MED_ASIA:            "FBX14",
+  ASIA_NAWEST:         "FBX01",
+  NAWEST_ASIA:         "FBX02",
+  ASIA_NAEAST:         "FBX03",
+  NAEAST_ASIA:         "FBX04",
+  NAEAST_NORTHEUROPE:  "FBX21",
+  NORTHEUROPE_NAEAST:  "FBX22",
+  EUROPE_SA_EAST:      "FBX24",
+  EUROPE_SA_WEST:      "FBX26",
+  ASIA_AU:             "Manual",
+  ASIA_ME:             "Manual",
+  ASIA_SEA:            "Manual",
+  ASIA_INDIA:          "Manual",
 };
 
 const DAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
 
 const TIMEZONES = [
-  { value: "Asia/Singapore",    label: "Singapore (UTC+8)"     },
-  { value: "Asia/Shanghai",     label: "Shanghai (UTC+8)"      },
-  { value: "Asia/Tokyo",        label: "Tokyo (UTC+9)"         },
-  { value: "Asia/Bangkok",      label: "Bangkok (UTC+7)"       },
-  { value: "Asia/Dubai",        label: "Dubai (UTC+4)"         },
-  { value: "Asia/Kolkata",      label: "Mumbai (UTC+5:30)"     },
-  { value: "Asia/Seoul",        label: "Seoul (UTC+9)"         },
-  { value: "Asia/Hong_Kong",    label: "Hong Kong (UTC+8)"     },
-  { value: "Asia/Kuala_Lumpur", label: "Kuala Lumpur (UTC+8)"  },
-  { value: "Europe/London",     label: "London (UTC+0/+1)"     },
-  { value: "Europe/Amsterdam",  label: "Amsterdam (UTC+1/+2)"  },
-  { value: "Europe/Berlin",     label: "Berlin (UTC+1/+2)"     },
-  { value: "Europe/Paris",      label: "Paris (UTC+1/+2)"      },
-  { value: "Europe/Madrid",     label: "Madrid (UTC+1/+2)"     },
-  { value: "America/New_York",  label: "New York (UTC-5/-4)"   },
-  { value: "America/Chicago",   label: "Chicago (UTC-6/-5)"    },
+  { value: "Asia/Singapore",      label: "Singapore (UTC+8)"      },
+  { value: "Asia/Shanghai",       label: "Shanghai (UTC+8)"       },
+  { value: "Asia/Tokyo",          label: "Tokyo (UTC+9)"          },
+  { value: "Asia/Bangkok",        label: "Bangkok (UTC+7)"        },
+  { value: "Asia/Dubai",          label: "Dubai (UTC+4)"          },
+  { value: "Asia/Kolkata",        label: "Mumbai (UTC+5:30)"      },
+  { value: "Asia/Seoul",          label: "Seoul (UTC+9)"          },
+  { value: "Asia/Hong_Kong",      label: "Hong Kong (UTC+8)"      },
+  { value: "Asia/Kuala_Lumpur",   label: "Kuala Lumpur (UTC+8)"   },
+  { value: "Europe/London",       label: "London (UTC+0/+1)"      },
+  { value: "Europe/Amsterdam",    label: "Amsterdam (UTC+1/+2)"   },
+  { value: "Europe/Berlin",       label: "Berlin (UTC+1/+2)"      },
+  { value: "Europe/Paris",        label: "Paris (UTC+1/+2)"       },
+  { value: "Europe/Madrid",       label: "Madrid (UTC+1/+2)"      },
+  { value: "America/New_York",    label: "New York (UTC-5/-4)"    },
+  { value: "America/Chicago",     label: "Chicago (UTC-6/-5)"     },
   { value: "America/Los_Angeles", label: "Los Angeles (UTC-8/-7)" },
-  { value: "America/Sao_Paulo", label: "São Paulo (UTC-3)"     },
-  { value: "Australia/Sydney",  label: "Sydney (UTC+10/+11)"   },
-  { value: "Pacific/Auckland",  label: "Auckland (UTC+12/+13)" },
-  { value: "UTC",               label: "UTC"                   },
+  { value: "America/Sao_Paulo",   label: "São Paulo (UTC-3)"      },
+  { value: "Australia/Sydney",    label: "Sydney (UTC+10/+11)"    },
+  { value: "Pacific/Auckland",    label: "Auckland (UTC+12/+13)"  },
+  { value: "UTC",                 label: "UTC"                    },
 ];
 
 const EMPTY_FORM = {
@@ -153,13 +203,15 @@ export default function ClientsPage() {
     } finally { setSubmitting(false); }
   }
 
-  async function handleDeactivate(client: Client) {
-    if (!confirm(`Deactivate ${client.name}?`)) return;
+  async function handleToggle(client: Client) {
+    const action = client.active ? "Deactivate" : "Activate";
+    if (!confirm(`${action} ${client.name}?`)) return;
     try {
-      await dispatch(deactivateClient(client.id)).unwrap();
-      toast.success(`${client.name} deactivated`);
-      load(page);
-    } catch { toast.error("Failed to deactivate client"); }
+      await dispatch(toggleClientActive(client.id)).unwrap();
+      toast.success(`${client.name} ${client.active ? "deactivated" : "activated"}`);
+    } catch {
+      toast.error("Failed to update client status");
+    }
   }
 
   return (
@@ -250,13 +302,15 @@ export default function ClientsPage() {
                         onClick={() => openEdit(client)}>
                         <Pencil size={13} />
                       </Button>
-                      {client.active && (
-                        <Button variant="ghost" size="icon"
-                          className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/5"
-                          onClick={() => handleDeactivate(client)}>
-                          <PowerOff size={13} />
-                        </Button>
-                      )}
+                      <Button variant="ghost" size="icon"
+                        title={client.active ? "Deactivate" : "Activate"}
+                        className={`h-7 w-7 ${client.active
+                          ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/5"
+                          : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/5"
+                        }`}
+                        onClick={() => handleToggle(client)}>
+                        {client.active ? <PowerOff size={13} /> : <Power size={13} />}
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -269,8 +323,9 @@ export default function ClientsPage() {
       <Pagination page={page} pages={pages} total={total} limit={PAGE_LIMIT}
         onPageChange={(p) => load(p)} />
 
+      {/* Add / Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-[#111] border-[#1f1f1f] text-zinc-100 min-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-[#111] border-[#1f1f1f] text-zinc-100 min-w-4xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <DialogHeader>
             <DialogTitle className="text-zinc-100">
               {editing ? "Edit Client" : "Add Client"}
@@ -311,7 +366,7 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            {/* Row 2 — Contract Rate, Report Frequency, Active */}
+            {/* Row 2 — Contract Rate, Frequency, Industry */}
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-zinc-400 text-xs">Contract Rate (USD / 40ft)</Label>
@@ -343,10 +398,15 @@ export default function ClientsPage() {
             </div>
 
             {/* Corridors */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label className="text-zinc-400 text-xs">Corridors</Label>
+
+              {/* FBX group */}
+              <p className="text-[10px] text-zinc-600 uppercase tracking-wider">
+                FBX — Freightos Terminal (free weekly index)
+              </p>
               <div className="grid grid-cols-4 gap-2">
-                {CORRIDORS.map((key) => {
+                {CORRIDORS_FBX.map((key) => {
                   const active = form.segments.includes(key);
                   return (
                     <button key={key} type="button" onClick={() => toggleCorridor(key)}
@@ -355,6 +415,32 @@ export default function ClientsPage() {
                           ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                           : "bg-transparent border-[#2a2a2a] text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
                         }`}>
+                      <span className="block text-[10px] font-mono text-zinc-600 mb-0.5">
+                        {CORRIDOR_FBX[key]}
+                      </span>
+                      {CORRIDOR_LABELS[key]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Manual group */}
+              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-3">
+                Manual — xeneta.com or forwarder quote
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {CORRIDORS_MANUAL.map((key) => {
+                  const active = form.segments.includes(key);
+                  return (
+                    <button key={key} type="button" onClick={() => toggleCorridor(key)}
+                      className={`py-2 px-3 rounded-md text-xs font-medium border transition-all text-left
+                        ${active
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                          : "bg-transparent border-[#2a2a2a] text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                        }`}>
+                      <span className="block text-[10px] font-mono text-zinc-600 mb-0.5">
+                        Manual
+                      </span>
                       {CORRIDOR_LABELS[key]}
                     </button>
                   );
@@ -362,13 +448,11 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            {/* Schedule section */}
+            {/* Schedule */}
             <div className="border-t border-[#2a2a2a] pt-4">
               <p className="text-xs font-medium text-zinc-600 uppercase tracking-wider mb-3">
                 Report Schedule
               </p>
-
-              {/* Row 3 — Timezone, Send Day, Send Time */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-zinc-400 text-xs">Client Timezone</Label>
@@ -415,9 +499,9 @@ export default function ClientsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 bg-dark">
+          <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}
-              className="text-zinc-500 hover:text-[#000]">
+              className="text-zinc-500 hover:text-zinc-300">
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}

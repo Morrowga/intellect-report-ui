@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Users, BarChart2, Ship, FileText, Activity, BookOpen, LogOut } from "lucide-react";
+import { Users, BarChart2, Ship, FileText, Activity, BookOpen, LogOut,Mails,CreditCard } from "lucide-react";
 import { Button } from "./ui/button";
 
 const NAV = [
@@ -12,6 +13,8 @@ const NAV = [
   { href: "/admin/carriers",  label: "Carriers",   icon: Ship      },
   { href: "/admin/reports",   label: "Reports",    icon: FileText  },
   { href: "/admin/resources", label: "Resources",  icon: BookOpen  },
+  { href: "/admin/inquries", label: "Inquiries",  icon: Mails  },
+  { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
 ];
 
 export function Sidebar() {
@@ -29,10 +32,12 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-6 border-b border-[#1f1f1f]">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
-          <span className="text-sm font-semibold tracking-widest uppercase text-zinc-100">
-            SC Intel
-          </span>
+          <div className="w-2 h-2 rounded-full bg-[#99e7fa] shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
+          <a href="/">
+            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-100">
+              INTELLECT
+            </span>
+          </a>
         </div>
         <p className="text-[10px] text-zinc-400 mt-1 tracking-wider uppercase">
           Supply Chain

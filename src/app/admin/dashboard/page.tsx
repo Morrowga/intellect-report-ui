@@ -152,7 +152,16 @@ export default function DashboardPage() {
           toast.error(`Pipeline failed: ${res.data.error || "unknown"}`);
           setRunning(false); clearInterval(interval);
         }
-      } catch { clearInterval(interval); }
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          // Server restarted — job lost from memory, treat as completed
+          toast.info("Pipeline finished (server restarted during run)");
+          setRunning(false);
+          setJobStatus("completed");
+          loadStats();
+        }
+        clearInterval(interval);
+      }
     }, 3000);
     return () => clearInterval(interval);
   }, [jobId, jobStatus]);

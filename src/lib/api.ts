@@ -11,8 +11,13 @@ api.interceptors.request.use((config) => {
       ? localStorage.getItem("api_key") || process.env.NEXT_PUBLIC_API_KEY || ""
       : process.env.NEXT_PUBLIC_API_KEY || "";
 
-  config.headers["X-API-Key"]    = key;
-  config.headers["Content-Type"] = "application/json";
+  config.headers["X-API-Key"] = key;
+
+  // Only set JSON content-type if not FormData
+  if (!(config.data instanceof FormData)) {
+    config.headers["Content-Type"] = "application/json";
+  }
+
   return config;
 });
 

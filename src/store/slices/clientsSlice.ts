@@ -65,11 +65,11 @@ export const updateClient = createAsyncThunk(
   }
 );
 
-export const deactivateClient = createAsyncThunk(
-  "clients/deactivate",
+export const toggleClientActive = createAsyncThunk(
+  "clients/toggle",
   async (id: string) => {
-    await api.delete(`/clients/${id}`);
-    return id;
+    const res = await api.patch(`/clients/${id}/toggle`);
+    return res.data as { id: string; active: boolean };
   }
 );
 
@@ -102,9 +102,9 @@ const clientsSlice = createSlice({
         const idx = state.items.findIndex((c) => c.id === action.payload.id);
         if (idx !== -1) state.items[idx] = action.payload;
       })
-      .addCase(deactivateClient.fulfilled, (state, action) => {
-        const idx = state.items.findIndex((c) => c.id === action.payload);
-        if (idx !== -1) state.items[idx].active = false;
+      .addCase(toggleClientActive.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((c) => c.id === action.payload.id);
+        if (idx !== -1) state.items[idx].active = action.payload.active;
       });
   },
 });

@@ -3,14 +3,14 @@ import api from "@/lib/api";
 import { PaginatedResponse } from "./clientsSlice";
 
 export interface Carrier {
-  id: number;
-  corridor: string;
-  name: string;
-  alliance: string;
+  id:          number;
+  corridor:    string;
+  name:        string;
+  alliance:    string;
   on_time_pct: number;
-  trend: string;
-  note: string;
-  source: string;
+  trend:       string;
+  note:        string;
+  source:      string;
   recorded_at: string;
 }
 
@@ -24,24 +24,40 @@ export interface CarrierUpsert {
   source?:     string;
 }
 
+export interface UploadResult {
+  success:         boolean;
+  upserted:        number;
+  corridors:       number;
+  alliances_found: string[];
+  new_alliances:   string[];
+  recorded_at:     string;
+  detail:          string;
+}
+
 interface CarriersState {
-  items:   Carrier[];
-  total:   number;
-  page:    number;
-  limit:   number;
-  pages:   number;
-  loading: boolean;
-  error:   string | null;
+  items:        Carrier[];
+  total:        number;
+  page:         number;
+  limit:        number;
+  pages:        number;
+  loading:      boolean;
+  error:        string | null;
+  uploading:    boolean;
+  uploadResult: UploadResult | null;
+  uploadError:  string | null;
 }
 
 const initialState: CarriersState = {
-  items:   [],
-  total:   0,
-  page:    1,
-  limit:   20,
-  pages:   1,
-  loading: false,
-  error:   null,
+  items:        [],
+  total:        0,
+  page:         1,
+  limit:        20,
+  pages:        1,
+  loading:      false,
+  error:        null,
+  uploading:    false,
+  uploadResult: null,
+  uploadError:  null,
 };
 
 export const fetchCarriers = createAsyncThunk(
@@ -70,12 +86,42 @@ export const deleteCarrier = createAsyncThunk(
   }
 );
 
+export const uploadCarrierExcel = createAsyncThunk(
+  "carriers/uploadExcel",
+  async (file: File, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/carriers/upload-excel", formData);
+      return res.data as UploadResult;
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      let msg = "Upload failed";
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        // FastAPI validation error — array of {msg, loc, type, input}
+        msg = detail.map((e: any) => e.msg ?? String(e)).join(", ");
+      } else if (detail) {
+        msg = JSON.stringify(detail);
+      }
+      return rejectWithValue(msg);
+    }
+  }
+);
+
 const carriersSlice = createSlice({
   name: "carriers",
   initialState,
-  reducers: {},
+  reducers: {
+    clearUploadResult(state) {
+      state.uploadResult = null;
+      state.uploadError  = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
+      // ── fetchCarriers ──────────────────────────────────────────────────────
       .addCase(fetchCarriers.pending, (state) => {
         state.loading = true;
         state.error   = null;
@@ -92,14 +138,34 @@ const carriersSlice = createSlice({
         state.loading = false;
         state.error   = action.error.message || "Failed to fetch carriers";
       })
+
+      // ── upsertCarrier ──────────────────────────────────────────────────────
       .addCase(upsertCarrier.fulfilled, (state) => {
         state.total += 1;
       })
+
+      // ── deleteCarrier ──────────────────────────────────────────────────────
       .addCase(deleteCarrier.fulfilled, (state, action) => {
         state.items  = state.items.filter((c) => c.id !== action.payload);
         state.total -= 1;
+      })
+
+      // ── uploadCarrierExcel ─────────────────────────────────────────────────
+      .addCase(uploadCarrierExcel.pending, (state) => {
+        state.uploading   = true;
+        state.uploadError = null;
+        state.uploadResult = null;
+      })
+      .addCase(uploadCarrierExcel.fulfilled, (state, action) => {
+        state.uploading    = false;
+        state.uploadResult = action.payload;
+      })
+      .addCase(uploadCarrierExcel.rejected, (state, action) => {
+        state.uploading   = false;
+        state.uploadError = action.payload as string;
       });
   },
 });
 
+export const { clearUploadResult } = carriersSlice.actions;
 export default carriersSlice.reducer;
