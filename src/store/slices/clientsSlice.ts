@@ -11,6 +11,9 @@ export interface Client {
   report_frequency: string;
   active: boolean;
   created_at: string;
+  timezone: string;
+  send_day: string;
+  send_time: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -70,6 +73,14 @@ export const toggleClientActive = createAsyncThunk(
   async (id: string) => {
     const res = await api.patch(`/clients/${id}/toggle`);
     return res.data as { id: string; active: boolean };
+  }
+);
+
+export const runEmergencyPipeline = createAsyncThunk(
+  "clients/runEmergencyPipeline",
+  async (id: string) => {
+    const res = await api.post(`/pipeline/emergency/${id}`);
+    return res.data as { job_id: string; client_id: string; message: string };
   }
 );
 

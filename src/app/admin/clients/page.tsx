@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
 import {
-  fetchClients, createClient, updateClient, toggleClientActive, Client,
+  fetchClients, createClient, updateClient, toggleClientActive,
+  runEmergencyPipeline, Client,
 } from "@/store/slices/clientsSlice";
 import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
@@ -22,34 +23,22 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, Power, PowerOff, Loader2 } from "lucide-react";
+import { Plus, Pencil, Power, PowerOff, Loader2, Zap } from "lucide-react";
+import api from "@/lib/api";
 
 // ---------------------------------------------------------------------------
-// All 16 corridors — 12 FBX (free) + 4 manual
+// Corridors
 // ---------------------------------------------------------------------------
 const CORRIDORS_FBX = [
-  "ASIA_NORTHEUROPE",
-  "NORTHEUROPE_ASIA",
-  "ASIA_MED",
-  "MED_ASIA",
-  "ASIA_NAWEST",
-  "NAWEST_ASIA",
-  "ASIA_NAEAST",
-  "NAEAST_ASIA",
-  "NAEAST_NORTHEUROPE",
-  "NORTHEUROPE_NAEAST",
-  "EUROPE_SA_EAST",
-  "EUROPE_SA_WEST",
+  "ASIA_NORTHEUROPE", "NORTHEUROPE_ASIA",
+  "ASIA_MED",         "MED_ASIA",
+  "ASIA_NAWEST",      "NAWEST_ASIA",
+  "ASIA_NAEAST",      "NAEAST_ASIA",
+  "NAEAST_NORTHEUROPE", "NORTHEUROPE_NAEAST",
+  "EUROPE_SA_EAST",   "EUROPE_SA_WEST",
 ];
 
-const CORRIDORS_MANUAL = [
-  "ASIA_AU",
-  "ASIA_ME",
-  "ASIA_SEA",
-  "ASIA_INDIA",
-];
-
-const ALL_CORRIDORS = [...CORRIDORS_FBX, ...CORRIDORS_MANUAL];
+const CORRIDORS_MANUAL = ["ASIA_AU", "ASIA_ME", "ASIA_SEA", "ASIA_INDIA"];
 
 const CORRIDOR_LABELS: Record<string, string> = {
   ASIA_NORTHEUROPE:    "China/East Asia → North Europe",
@@ -71,22 +60,13 @@ const CORRIDOR_LABELS: Record<string, string> = {
 };
 
 const CORRIDOR_FBX: Record<string, string> = {
-  ASIA_NORTHEUROPE:    "FBX11",
-  NORTHEUROPE_ASIA:    "FBX12",
-  ASIA_MED:            "FBX13",
-  MED_ASIA:            "FBX14",
-  ASIA_NAWEST:         "FBX01",
-  NAWEST_ASIA:         "FBX02",
-  ASIA_NAEAST:         "FBX03",
-  NAEAST_ASIA:         "FBX04",
-  NAEAST_NORTHEUROPE:  "FBX21",
-  NORTHEUROPE_NAEAST:  "FBX22",
-  EUROPE_SA_EAST:      "FBX24",
-  EUROPE_SA_WEST:      "FBX26",
-  ASIA_AU:             "Manual",
-  ASIA_ME:             "Manual",
-  ASIA_SEA:            "Manual",
-  ASIA_INDIA:          "Manual",
+  ASIA_NORTHEUROPE: "FBX11", NORTHEUROPE_ASIA: "FBX12",
+  ASIA_MED: "FBX13",         MED_ASIA: "FBX14",
+  ASIA_NAWEST: "FBX01",      NAWEST_ASIA: "FBX02",
+  ASIA_NAEAST: "FBX03",      NAEAST_ASIA: "FBX04",
+  NAEAST_NORTHEUROPE: "FBX21", NORTHEUROPE_NAEAST: "FBX22",
+  EUROPE_SA_EAST: "FBX24",   EUROPE_SA_WEST: "FBX26",
+  ASIA_AU: "Manual", ASIA_ME: "Manual", ASIA_SEA: "Manual", ASIA_INDIA: "Manual",
 };
 
 const DAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
@@ -125,6 +105,17 @@ const EMPTY_FORM = {
 type FormState = typeof EMPTY_FORM;
 const PAGE_LIMIT = 20;
 
+// ---------------------------------------------------------------------------
+// Emergency job state
+// ---------------------------------------------------------------------------
+interface EmergencyJob {
+  jobId:      string;
+  clientId:   string;
+  clientName: string;
+  status:     "queued" | "running" | "completed" | "failed";
+  error?:     string;
+}
+
 export default function ClientsPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { items: clients, loading, error, page, pages, total } = useSelector(
@@ -135,9 +126,41 @@ export default function ClientsPage() {
   const [editing, setEditing]       = useState<Client | null>(null);
   const [form, setForm]             = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [emergencyJob, setEmergencyJob] = useState<EmergencyJob | null>(null);
 
   function load(p: number) { dispatch(fetchClients({ page: p, limit: PAGE_LIMIT })); }
   useEffect(() => { load(1); }, [dispatch]);
+
+  // ── Poll emergency job status ──────────────────────────────────────────
+  useEffect(() => {
+    if (!emergencyJob) return;
+    if (emergencyJob.status === "completed" || emergencyJob.status === "failed") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/pipeline/status/${emergencyJob.jobId}`);
+        const s: EmergencyJob["status"] = res.data.status;
+        setEmergencyJob((prev) => prev ? { ...prev, status: s } : null);
+
+        if (s === "completed") {
+          toast.success(`Emergency report sent to ${emergencyJob.clientName}`);
+          clearInterval(interval);
+        } else if (s === "failed") {
+          toast.error(`Emergency pipeline failed: ${res.data.error || "unknown"}`);
+          setEmergencyJob((prev) => prev ? { ...prev, error: res.data.error } : null);
+          clearInterval(interval);
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          toast.info("Emergency pipeline finished (server restarted during run)");
+          setEmergencyJob((prev) => prev ? { ...prev, status: "completed" } : null);
+        }
+        clearInterval(interval);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [emergencyJob?.jobId, emergencyJob?.status]);
 
   function openAdd() { setEditing(null); setForm(EMPTY_FORM); setOpen(true); }
 
@@ -152,9 +175,9 @@ export default function ClientsPage() {
       contract_rate:    client.contract_rate?.toString() ?? "",
       report_frequency: client.report_frequency,
       active:           client.active,
-      timezone:         (client as any).timezone  || "UTC",
-      send_day:         (client as any).send_day  || "monday",
-      send_time:        (client as any).send_time || "09:00",
+      timezone:         client.timezone  || "UTC",
+      send_day:         client.send_day  || "monday",
+      send_time:        client.send_time || "09:00",
     });
     setOpen(true);
   }
@@ -214,6 +237,35 @@ export default function ClientsPage() {
     }
   }
 
+  async function handleEmergency(client: Client) {
+    if (!confirm(
+      `Send emergency report to ${client.name} right now?\n\nThis will:\n` +
+      `• Delete today's existing report records\n` +
+      `• Run the pipeline immediately\n` +
+      `• Send email regardless of environment setting`
+    )) return;
+
+    try {
+      const result = await dispatch(runEmergencyPipeline(client.id)).unwrap();
+      setEmergencyJob({
+        jobId:      result.job_id,
+        clientId:   client.id,
+        clientName: client.name,
+        status:     "queued",
+      });
+      toast.success(`Emergency pipeline started for ${client.name}`);
+    } catch (err: unknown) {
+      toast.error("Emergency pipeline failed", {
+        description: err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message) : "Unknown error",
+      });
+    }
+  }
+
+  const emergencyRunning = emergencyJob !== null
+    && emergencyJob.status !== "completed"
+    && emergencyJob.status !== "failed";
+
   return (
     <div>
       <PageHeader
@@ -226,6 +278,31 @@ export default function ClientsPage() {
           </Button>
         }
       />
+
+      {/* Emergency pipeline status banner */}
+      {emergencyJob && emergencyJob.status !== "completed" && emergencyJob.status !== "failed" && (
+        <div className="mb-6 px-4 py-3 rounded-md bg-amber-500/5 border border-amber-500/20 text-amber-400 text-sm flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" />
+          Emergency pipeline {emergencyJob.status} for{" "}
+          <span className="font-medium">{emergencyJob.clientName}</span>
+          {" "}— checking every 3 seconds...
+        </div>
+      )}
+      {emergencyJob?.status === "completed" && (
+        <div className="mb-6 px-4 py-3 rounded-md bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 text-sm flex items-center justify-between">
+          <span>✓ Emergency report delivered to <span className="font-medium">{emergencyJob.clientName}</span></span>
+          <button onClick={() => setEmergencyJob(null)}
+            className="text-emerald-600 hover:text-emerald-400 text-xs underline">Dismiss</button>
+        </div>
+      )}
+      {emergencyJob?.status === "failed" && (
+        <div className="mb-6 px-4 py-3 rounded-md bg-red-500/5 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+          <span>✗ Emergency pipeline failed for <span className="font-medium">{emergencyJob.clientName}</span>
+            {emergencyJob.error && `: ${emergencyJob.error}`}</span>
+          <button onClick={() => setEmergencyJob(null)}
+            className="text-red-600 hover:text-red-400 text-xs underline">Dismiss</button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -279,11 +356,9 @@ export default function ClientsPage() {
                   </TableCell>
                   <TableCell>
                     <p className="text-zinc-400 text-xs capitalize">
-                      {(client as any).send_day || "monday"}s · {(client as any).send_time || "09:00"}
+                      {client.send_day || "monday"}s · {client.send_time || "09:00"}
                     </p>
-                    <p className="text-zinc-600 text-xs font-mono">
-                      {(client as any).timezone || "UTC"}
-                    </p>
+                    <p className="text-zinc-600 text-xs font-mono">{client.timezone || "UTC"}</p>
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm font-mono">
                     {client.contract_rate ? `$${client.contract_rate.toLocaleString()}` : "—"}
@@ -306,10 +381,18 @@ export default function ClientsPage() {
                         title={client.active ? "Deactivate" : "Activate"}
                         className={`h-7 w-7 ${client.active
                           ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/5"
-                          : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/5"
-                        }`}
+                          : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/5"}`}
                         onClick={() => handleToggle(client)}>
                         {client.active ? <PowerOff size={13} /> : <Power size={13} />}
+                      </Button>
+                      <Button variant="ghost" size="icon"
+                        title="Send emergency report now"
+                        disabled={emergencyRunning}
+                        className="h-7 w-7 text-zinc-500 hover:text-amber-400 hover:bg-amber-500/5 disabled:opacity-40"
+                        onClick={() => handleEmergency(client)}>
+                        {emergencyJob?.clientId === client.id && emergencyRunning
+                          ? <Loader2 size={13} className="animate-spin text-amber-400" />
+                          : <Zap size={13} />}
                       </Button>
                     </div>
                   </TableCell>
@@ -400,8 +483,6 @@ export default function ClientsPage() {
             {/* Corridors */}
             <div className="space-y-2">
               <Label className="text-zinc-400 text-xs">Corridors</Label>
-
-              {/* FBX group */}
               <p className="text-[10px] text-zinc-600 uppercase tracking-wider">
                 FBX — Freightos Terminal (free weekly index)
               </p>
@@ -423,8 +504,6 @@ export default function ClientsPage() {
                   );
                 })}
               </div>
-
-              {/* Manual group */}
               <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-3">
                 Manual — xeneta.com or forwarder quote
               </p>
@@ -438,9 +517,7 @@ export default function ClientsPage() {
                           ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                           : "bg-transparent border-[#2a2a2a] text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
                         }`}>
-                      <span className="block text-[10px] font-mono text-zinc-600 mb-0.5">
-                        Manual
-                      </span>
+                      <span className="block text-[10px] font-mono text-zinc-600 mb-0.5">Manual</span>
                       {CORRIDOR_LABELS[key]}
                     </button>
                   );
