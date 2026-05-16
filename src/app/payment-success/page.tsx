@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Mail, Calendar, BarChart2 } from "lucide-react";
+import { CheckCircle2, Mail, Calendar, BarChart2, Loader2 } from "lucide-react";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const [show, setShow] = useState(false);
 
@@ -36,7 +36,7 @@ export default function PaymentSuccessPage() {
         <div className="flex items-center justify-center gap-2 mb-10">
           <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
           <span className="text-xs font-semibold tracking-widest uppercase text-zinc-400">
-            CHAINIQ
+            INTELLECT
           </span>
         </div>
 
@@ -66,7 +66,7 @@ export default function PaymentSuccessPage() {
               <div>
                 <p className="text-zinc-500 text-xs">Monthly subscription</p>
                 <p className="text-zinc-300 text-sm font-medium mt-0.5 capitalize">
-                  CHAINIQ {plan} plan
+                  INTELLECT {plan} plan
                 </p>
               </div>
               <div className="text-right">
@@ -83,9 +83,21 @@ export default function PaymentSuccessPage() {
 
         {/* Footer */}
         <p className="text-center text-zinc-700 text-xs mt-6">
-          CHAINIQ Supply Chain Intelligence
+          INTELLECT Supply Chain Intelligence
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 size={20} className="text-emerald-400 animate-spin" />
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

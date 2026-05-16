@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -213,11 +213,9 @@ function PaymentForm({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
-export default function CheckoutPage() {
-  const searchParams   = useSearchParams();
+function CheckoutContent()
+{
+const searchParams   = useSearchParams();
   const clientSecret   = searchParams.get("client_secret");
   const plan           = searchParams.get("plan") || "starter";
   const clientName     = searchParams.get("name") || "";
@@ -238,7 +236,7 @@ export default function CheckoutPage() {
           <div className="flex items-center justify-center gap-2 mb-6">
             <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
             <span className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
-              CHAINIQ
+              INTELLECT
             </span>
           </div>
           <p className="text-zinc-400 text-sm">{error}</p>
@@ -266,7 +264,7 @@ export default function CheckoutPage() {
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)]" />
               <span className="text-sm font-semibold tracking-widest uppercase text-zinc-300">
-                CHAINIQ
+                INTELLECT
               </span>
             </div>
 
@@ -338,10 +336,25 @@ export default function CheckoutPage() {
 
         {/* Footer */}
         <p className="text-center text-zinc-700 text-xs mt-8">
-          Payments processed by Stripe · CHAINIQ Supply Chain Intelligence
+          Payments processed by Stripe · INTELLECT Supply Chain Intelligence
         </p>
 
       </div>
     </div>
+  );  
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 size={20} className="text-emerald-400 animate-spin" />
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

@@ -313,7 +313,7 @@ export default function RatesPage() {
 
       {/* Add Rate Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-[#111] border-[#1f1f1f] text-zinc-100 max-w-md">
+        <DialogContent className="bg-[#111] border-[#1f1f1f] text-zinc-100 min-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Add Freight Rate</DialogTitle>
           </DialogHeader>

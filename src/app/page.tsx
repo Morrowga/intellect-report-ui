@@ -707,7 +707,7 @@ export default function LandingPage() {
           <span className="font-extrabold text-sm tracking-tight" style={{ fontFamily: SYNE }}>
             INTELL<span className="text-[#99e7fa]">ECT</span>
           </span>
-          <p className="text-[11px] text-slate-600">© {year} ChainIQ. All rights reserved.</p>
+          <p className="text-[11px] text-slate-600">© {year} INTELLECT. All rights reserved.</p>
         </footer>
       </div>
 

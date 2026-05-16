@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { XCircle } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { Loader2, XCircle } from "lucide-react";
 
-export default function PaymentCancelledPage() {
+function PaymentCancelledContent()
+{
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -36,10 +37,22 @@ export default function PaymentCancelledPage() {
         <div className="flex items-center justify-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" />
           <span className="text-xs font-semibold tracking-widest uppercase text-zinc-500">
-            CHAINIQ
+            INTELLECT
           </span>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentCancelledPage() {
+   return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 size={20} className="text-emerald-400 animate-spin" />
+      </div>
+    }>
+      <PaymentCancelledContent />
+    </Suspense>
   );
 }

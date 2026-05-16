@@ -68,7 +68,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     dispatch(fetchClients({ page: 1, limit: 100 }));
-    dispatch(fetchPayments());
+    dispatch(fetchPayments({ page: 1, limit: 100 }));
   }, [dispatch]);
 
   function openGenerateDialog(client: any) {
